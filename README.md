@@ -23,14 +23,4 @@ Dungeon Quest 3D is a roguelike dungeon crawler where you navigate 3D procedural
 - **Floor Rewards** - Earn coins and potions based on your performance in each dungeon
 - **3D First-Person View** - Immersive dungeon exploration with dynamic lighting and shadows
 
-## Run
 
-Open `index.html` in a browser with internet access.
-
-If your browser blocks local script loading, run a small local server from this folder:
-
-```powershell
-python -m http.server 8000
-```
-
-Then visit `http://localhost:8000`.
