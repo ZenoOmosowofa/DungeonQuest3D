@@ -34,7 +34,9 @@
     healthText: document.getElementById("healthText"),
     healthBarPanelTown: document.getElementById("healthBarPanelTown"),
     healthBarTown: document.getElementById("healthBarTown"),
-    healthTextTown: document.getElementById("healthTextTown")
+    healthTextTown: document.getElementById("healthTextTown"),
+    townStatsPanel: document.getElementById("townStatsPanel"),
+    slashDamageText: document.getElementById("slashDamageText")
   };
   const mapContext = ui.mapCanvas.getContext("2d");
 
@@ -84,6 +86,10 @@
     logs: [],
     pointerLocked: false,
     storeOpen: false,
+    isGameOver: false,
+    stats: {
+      slainMonsters: 0
+    },
     cameraRig: {
       yaw: 0,
       pitch: -0.18
@@ -118,6 +124,7 @@
   };
 
   setupScene();
+  createGameOverOverlay();
   bindEvents();
   buildTown();
   updateHud();
@@ -203,6 +210,9 @@
     window.addEventListener("resize", onResize);
 
     window.addEventListener("keydown", (event) => {
+      if (game.isGameOver) {
+        return;
+      }
       const key = event.key.toLowerCase();
       keys[key] = true;
       if (key === "shift") {
@@ -228,6 +238,9 @@
     });
 
     window.addEventListener("keyup", (event) => {
+      if (game.isGameOver) {
+        return;
+      }
       keys[event.key.toLowerCase()] = false;
     });
 
@@ -257,6 +270,9 @@
     });
 
     renderer.domElement.addEventListener("click", () => {
+      if (game.isGameOver) {
+        return;
+      }
       if (game.started) {
         requestPointer();
       }
@@ -267,7 +283,7 @@
     });
 
     window.addEventListener("mousemove", (event) => {
-      if (!game.pointerLocked || !game.started) {
+      if (game.isGameOver || !game.pointerLocked || !game.started) {
         return;
       }
       game.cameraRig.yaw -= event.movementX * 0.0025;
@@ -276,10 +292,16 @@
     });
 
     window.addEventListener("mousedown", () => {
+      if (game.isGameOver) {
+        return;
+      }
       keys.mouse = true;
     });
 
     window.addEventListener("mouseup", () => {
+      if (game.isGameOver) {
+        return;
+      }
       keys.mouse = false;
     });
 
@@ -316,6 +338,67 @@
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function createGameOverOverlay() {
+    const wrapper = document.createElement("div");
+    wrapper.id = "gameOverOverlay";
+    wrapper.className = "hidden";
+    wrapper.style.position = "fixed";
+    wrapper.style.inset = "0";
+    wrapper.style.zIndex = "40";
+    wrapper.style.display = "none";
+    wrapper.style.placeItems = "center";
+    wrapper.style.background = "rgba(4, 4, 8, 0.82)";
+    wrapper.style.backdropFilter = "blur(8px)";
+
+    const card = document.createElement("div");
+    card.style.width = "min(520px, calc(100vw - 32px))";
+    card.style.padding = "28px";
+    card.style.borderRadius = "24px";
+    card.style.border = "1px solid rgba(255, 215, 138, 0.24)";
+    card.style.background = "linear-gradient(180deg, rgba(32, 18, 24, 0.96), rgba(14, 16, 24, 0.96))";
+    card.style.boxShadow = "0 20px 60px rgba(0, 0, 0, 0.45)";
+    card.style.textAlign = "center";
+    card.style.color = "#f5efe2";
+    card.innerHTML = `
+      <h2 style="margin:0 0 12px;font-size:2rem;letter-spacing:0.05em;">Game Over</h2>
+      <p style="margin:0 0 16px;color:#c7beaf;">Your run has ended. Click anywhere to continue.</p>
+      <div id="gameOverStats" style="display:grid;gap:10px;text-align:left;background:rgba(255,255,255,0.04);border-radius:16px;padding:16px;"></div>
+    `;
+
+    wrapper.appendChild(card);
+    document.body.appendChild(wrapper);
+
+    wrapper.addEventListener("click", () => {
+      if (!game.isGameOver) {
+        return;
+      }
+      hideGameOverScreen();
+      resetRunToClassSelection();
+    });
+
+    ui.gameOverOverlay = wrapper;
+    ui.gameOverStats = card.querySelector("#gameOverStats");
+  }
+
+  function showGameOverScreen() {
+    const maxSlashDamage = Math.round(game.player.damage * 1.85);
+    ui.gameOverStats.innerHTML = [
+      `Monsters Slain: ${game.stats.slainMonsters}`,
+      `Total Health: ${game.player.maxHp}`,
+      `Max Slash Damage: ${maxSlashDamage}`
+    ].map((line) => `<div>${line}</div>`).join("");
+    ui.gameOverOverlay.classList.remove("hidden");
+    ui.gameOverOverlay.style.display = "grid";
+  }
+
+  function hideGameOverScreen() {
+    game.isGameOver = false;
+    game.paused = false;
+    keys.mouse = false;
+    ui.gameOverOverlay.classList.add("hidden");
+    ui.gameOverOverlay.style.display = "none";
   }
 
   function updatePauseMenu() {
@@ -487,12 +570,19 @@
   }
 
   function updateHud() {
+    const totalSlashDamage = Math.round(game.player.damage * 1.85);
     ui.location.textContent = game.mode === "town" ? "Ancient Hub" : `Dungeon Floor ${game.dungeonLevel}`;
     ui.stats.textContent = `HP ${Math.ceil(game.player.hp)}/${game.player.maxHp} | DMG ${game.player.damage} | SPD ${game.player.speed.toFixed(1)} | LVL ${game.player.level}`;
     ui.resources.textContent = `Coins ${game.player.coins} | Potions ${game.player.potions} | Crit ${Math.round(game.player.critChance * 100)}% | Luck ${Math.round(game.player.luck * 100)}%`;
     ui.quest.textContent = game.quest ? `Quest: ${game.quest.text} (${game.quest.progress}/${game.quest.target})` : "Quest: explore and survive";
     ui.mapTitle.textContent = game.mode === "town" ? "Hub Map" : "Dungeon Map";
     ui.storeStatus.innerHTML = `Coins ${game.player.coins}. Buy potions and permanent upgrades here.`;
+    ui.slashDamageText.textContent = `Total Slash Damage ${totalSlashDamage}`;
+    if (game.mode === "town") {
+      ui.townStatsPanel.classList.remove("hidden");
+    } else {
+      ui.townStatsPanel.classList.add("hidden");
+    }
     
     // Update health bars
     const healthPercent = Math.max(0, Math.min(100, (game.player.hp / game.player.maxHp) * 100));
@@ -619,6 +709,7 @@
     game.mode = "town";
     game.dungeonCleared = false;
     game.storeOpen = false;
+    game.player.hp = game.player.maxHp;
     ui.storeModal.classList.add("hidden");
     // Show controls and town health bar, hide dungeon health bar
     ui.controlsPanel.classList.remove("hidden");
@@ -1281,6 +1372,7 @@
   }
 
   function killMonster(monster) {
+    game.stats.slainMonsters += 1;
     game.player.coins += monster.coin;
     game.player.xp += 20 + monster.coin;
     maybeLevelUp();
@@ -1473,9 +1565,19 @@
   }
 
   function handleDefeat() {
-    addLog("You lost the dungeon run. No new money from uncleared enemies.");
-    game.player.hp = game.player.maxHp;
-    buildTown();
+    if (game.isGameOver) {
+      return;
+    }
+    addLog("You lost the dungeon run. Click to continue.");
+    game.isGameOver = true;
+    game.paused = true;
+    game.storeOpen = false;
+    keys.mouse = false;
+    game.player.hp = 0;
+    if (document.exitPointerLock) {
+      document.exitPointerLock();
+    }
+    showGameOverScreen();
   }
 
   function maybeLevelUp() {
@@ -1699,5 +1801,45 @@
       x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
       return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
     };
+  }
+
+  function resetRunToClassSelection() {
+    game.started = false;
+    game.paused = false;
+    game.storeOpen = false;
+    game.dungeonLevel = 0;
+    game.floorSeed = 2;
+    game.dungeonCleared = false;
+    game.transitionTimer = 0;
+    game.interactionCooldown = 0;
+    game.attackTimer = 0;
+    game.dashTimer = 0;
+    game.dashCooldown = 0;
+    game.quest = null;
+    game.stats.slainMonsters = 0;
+    game.logs = [];
+    game.player.maxHp = 100;
+    game.player.hp = 100;
+    game.player.damage = 18;
+    game.player.speed = 6.6;
+    game.player.coins = 0;
+    game.player.potions = 2;
+    game.player.critChance = 0.08;
+    game.player.luck = 0.05;
+    game.player.level = 1;
+    game.player.xp = 0;
+    game.player.velocity.set(0, 0, 0);
+    game.player.isJumping = false;
+    keys.mouse = false;
+    if (document.exitPointerLock) {
+      document.exitPointerLock();
+    }
+    ui.overlay.classList.remove("hidden");
+    ui.storeModal.classList.add("hidden");
+    ui.rewardModal.classList.add("hidden");
+    ui.pauseMenu.classList.add("hidden");
+    ui.log.innerHTML = "";
+    buildTown();
+    updateHud();
   }
 })();
