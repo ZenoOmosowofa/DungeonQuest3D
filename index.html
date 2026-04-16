@@ -9,6 +9,10 @@
 </head>
 <body>
   <div id="hud">
+    <div id="townStatsPanel" class="panel top-left play-panel">
+      <h2>Town Power</h2>
+      <p id="slashDamageText">Slash Damage 0</p>
+    </div>
     <div id="mapPanel" class="panel top-right play-panel">
       <h2 id="mapTitle">Hub Map</h2>
       <canvas id="mapCanvas" width="220" height="220"></canvas>
@@ -77,19 +81,19 @@
       <div class="class-grid">
         <button class="class-button" data-class="tank">
           <strong>Tank</strong><br>
-          <small>220 HP, Strong Defense</small>
+          <small>220 HP, Slash 28, Strong Defense</small>
         </button>
         <button class="class-button" data-class="hunter">
           <strong>Hunter</strong><br>
-          <small>170 HP, Balanced</small>
+          <small>170 HP, Slash 37, Balanced</small>
         </button>
         <button class="class-button" data-class="assassin">
           <strong>Assassin</strong><br>
-          <small>140 HP, High Damage</small>
+          <small>140 HP, Slash 44, High Damage</small>
         </button>
         <button class="class-button" data-class="rogue">
           <strong>Rogue</strong><br>
-          <small>200 HP, Agile</small>
+          <small>200 HP, Slash 33, Agile</small>
         </button>
       </div>
     </div>
@@ -108,3 +112,4 @@
   <script src="./game.js"></script>
 </body>
 </html>
+
