@@ -1,0 +1,373 @@
+:root {
+  --bg: rgba(9, 13, 22, 0.78);
+  --border: rgba(255, 215, 138, 0.24);
+  --text: #f5efe2;
+  --muted: #b9b3a5;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(28, 44, 68, 0.55), transparent 40%),
+    linear-gradient(180deg, #120f17, #090b12 60%, #07080c);
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+canvas {
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.panel {
+  position: absolute;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  padding: 14px 16px;
+  pointer-events: auto;
+}
+
+.play-panel {
+  pointer-events: auto;
+}
+
+.panel h1,
+.panel h2,
+.card h2 {
+  margin: 0 0 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.panel p {
+  margin: 6px 0;
+  color: var(--muted);
+}
+
+.panel strong,
+.panel span {
+  display: inline-block;
+  min-width: 108px;
+  color: var(--text);
+}
+
+.top-left {
+  top: 16px;
+  left: 16px;
+  width: 330px;
+}
+
+.top-right {
+  top: 16px;
+  right: 16px;
+  width: 260px;
+}
+
+.bottom-left {
+  left: 16px;
+  bottom: 16px;
+  width: 400px;
+  max-height: 240px;
+}
+
+.bottom-right {
+  right: 16px;
+  bottom: 16px;
+  width: 300px;
+}
+
+#mapCanvas {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 215, 138, 0.18);
+  background: rgba(4, 8, 14, 0.82);
+}
+
+#log {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 6px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+#storeStatus {
+  min-height: 56px;
+  margin-bottom: 10px;
+  color: var(--muted);
+}
+
+.store-grid,
+.choice-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.store-grid button,
+.choice-grid button,
+#startButton,
+#resumeButton,
+#quitButton,
+#closeStoreButton {
+  border: 1px solid rgba(255, 196, 117, 0.36);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 211, 138, 0.22), rgba(134, 80, 30, 0.16)),
+    rgba(19, 21, 31, 0.92);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.store-grid button:hover,
+.choice-grid button:hover,
+#startButton:hover,
+#resumeButton:hover,
+#quitButton:hover,
+#closeStoreButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 211, 138, 0.78);
+}
+
+#overlay,
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 5, 10, 0.62);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
+.transition-fx {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgba(180, 126, 255, 0.55), rgba(17, 10, 30, 0.92) 48%, rgba(0, 0, 0, 1) 70%);
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.transition-fx.active {
+  opacity: 1;
+}
+
+.transition-core {
+  width: 22vmin;
+  height: 22vmin;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 240, 214, 0.7);
+  box-shadow:
+    0 0 40px rgba(214, 170, 255, 0.45),
+    0 0 120px rgba(91, 41, 162, 0.55);
+  animation: pulse 900ms ease-in-out infinite alternate;
+}
+
+#overlay.hidden,
+.modal.hidden,
+.hidden {
+  display: none;
+}
+
+.card {
+  width: min(560px, calc(100vw - 32px));
+  padding: 28px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top, rgba(255, 193, 122, 0.12), transparent 35%),
+    linear-gradient(180deg, rgba(24, 30, 48, 0.98), rgba(14, 17, 27, 0.98));
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.store-card {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.card p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.pause-shell {
+  width: min(1100px, calc(100vw - 32px));
+  min-height: min(620px, calc(100vh - 32px));
+  display: grid;
+  grid-template-columns: 320px minmax(180px, 240px) 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.pause-left,
+.pause-right {
+  position: static;
+  width: auto;
+  min-height: 420px;
+}
+
+.pause-center {
+  display: grid;
+  gap: 14px;
+  align-content: center;
+}
+
+.pause-center button {
+  min-width: 180px;
+}
+
+.choice-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-top: 16px;
+}
+
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.class-button {
+  border: 2px solid rgba(255, 196, 117, 0.36);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 211, 138, 0.22), rgba(134, 80, 30, 0.16)),
+    rgba(19, 21, 31, 0.92);
+  color: var(--text);
+  padding: 16px 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.class-button:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 211, 138, 0.78);
+  box-shadow: 0 8px 16px rgba(255, 211, 138, 0.2);
+}
+
+.class-button strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1.1em;
+}
+
+.class-button small {
+  display: block;
+  margin-top: 4px;
+}
+
+small {
+  color: var(--muted);
+}
+
+#healthBarContainer {
+  width: 100%;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 100, 100, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+#healthBar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff4444, #ff8844);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.6);
+  transition: width 150ms ease;
+  width: 100%;
+}
+
+#healthText {
+  margin: 6px 0;
+  color: #ff8844;
+  font-weight: 600;
+  text-align: center;
+}
+
+#healthBarContainerTown {
+  width: 100%;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 100, 100, 0.4);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+#healthBarTown {
+  height: 100%;
+  background: linear-gradient(90deg, #ff4444, #ff8844);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.6);
+  transition: width 150ms ease;
+  width: 100%;
+}
+
+#healthTextTown {
+  margin: 6px 0;
+  color: #ff8844;
+  font-weight: 600;
+  text-align: center;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.75);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .top-right,
+  .bottom-right {
+    width: calc(100vw - 24px);
+    left: 12px;
+    right: 12px;
+  }
+
+  .top-right {
+    top: 12px;
+  }
+
+  .bottom-right {
+    bottom: 12px;
+  }
+
+  .pause-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+}

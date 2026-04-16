@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon Quest 3D</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="hud">
+    <div id="mapPanel" class="panel top-right play-panel">
+      <h2 id="mapTitle">Hub Map</h2>
+      <canvas id="mapCanvas" width="220" height="220"></canvas>
+    </div>
+    <div id="controlsPanel" class="panel bottom-right play-panel">
+      <h2>Controls</h2>
+      <p><span>Move</span><strong>W A S D</strong></p>
+      <p><span>Look</span><strong>Move Mouse</strong></p>
+      <p><span>Attack</span><strong>Mouse Click</strong></p>
+      <p><span>Dash</span><strong>Shift</strong></p>
+      <p><span>Jump</span><strong>Space</strong></p>
+      <p><span>Drink Potion</span><strong>Q</strong></p>
+      <p><span>Interact</span><strong>E</strong></p>
+      <p><span>Pause</span><strong>P</strong></p>
+    </div>
+    <div id="healthBarPanel" class="panel bottom-right play-panel hidden">
+      <h2>Health</h2>
+      <div id="healthBarContainer">
+        <div id="healthBar"></div>
+      </div>
+      <p id="healthText"></p>
+    </div>
+    <div id="healthBarPanelTown" class="panel bottom-left play-panel">
+      <h2>Health</h2>
+      <div id="healthBarContainerTown">
+        <div id="healthBarTown"></div>
+      </div>
+      <p id="healthTextTown"></p>
+    </div>
+  </div>
+  <div id="pauseMenu" class="modal hidden">
+    <div class="pause-shell">
+      <div class="panel pause-left">
+        <h1>Dungeon Quest 3D</h1>
+        <p id="locationLabel">Town</p>
+        <p id="statsLabel"></p>
+        <p id="resourcesLabel"></p>
+        <p id="questLabel"></p>
+      </div>
+      <div class="pause-center">
+        <button id="resumeButton">Resume</button>
+        <button id="quitButton">Quit</button>
+      </div>
+      <div class="panel pause-right">
+        <h2>Log</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+  <div id="storeModal" class="modal hidden">
+    <div class="card store-card">
+      <h2>Ancient Hub Store</h2>
+      <p id="storeStatus"></p>
+      <div class="store-grid">
+        <button data-buy="potion">Potion<br><small>20 coins</small></button>
+        <button data-buy="power">Power-up<br><small>45 coins</small></button>
+        <button data-buy="vitality">Vitality<br><small>55 coins</small></button>
+      </div>
+      <button id="closeStoreButton">Leave Shop</button>
+    </div>
+  </div>
+  <div id="overlay" class="visible">
+    <div class="card">
+      <h2>Choose Your Class</h2>
+      <p>Select your starting class to begin your adventure.</p>
+      <div class="class-grid">
+        <button class="class-button" data-class="tank">
+          <strong>Tank</strong><br>
+          <small>220 HP, Strong Defense</small>
+        </button>
+        <button class="class-button" data-class="hunter">
+          <strong>Hunter</strong><br>
+          <small>170 HP, Balanced</small>
+        </button>
+        <button class="class-button" data-class="assassin">
+          <strong>Assassin</strong><br>
+          <small>140 HP, High Damage</small>
+        </button>
+        <button class="class-button" data-class="rogue">
+          <strong>Rogue</strong><br>
+          <small>200 HP, Agile</small>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="rewardModal" class="modal hidden">
+    <div class="card">
+      <h2>Choose Your Reward</h2>
+      <p>Floor cleared. Pick one permanent blessing.</p>
+      <div id="rewardChoices" class="choice-grid"></div>
+    </div>
+  </div>
+  <div id="transitionFx" class="transition-fx hidden">
+    <div class="transition-core"></div>
+  </div>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>
