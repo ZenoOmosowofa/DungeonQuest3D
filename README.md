@@ -1,4 +1,5 @@
 # Dungeon Quest 3D
+This game is designed exclusively for PC platforms and will not be compatible with mobile devices such as phones.
 
 A browser-based 3D roguelike built with `Three.js`. Choose a class, explore procedural dungeons, fight monster packs and bosses, collect coins and potions, and return to the Ancient Hub to prepare for the next run.
 
