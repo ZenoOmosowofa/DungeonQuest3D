@@ -259,9 +259,7 @@
     });
 
     ui.quitButton.addEventListener("click", () => {
-      game.paused = false;
-      updatePauseMenu();
-      buildTown();
+     window.close();
     });
 
     ui.closeStoreButton.addEventListener("click", () => {
