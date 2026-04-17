@@ -39,17 +39,6 @@ Starting slash damage is based on the current critical slash multiplier used by 
 - `E`: Interact
 - `P`: Pause
 
-## Run Locally
-
-Open `index.html` in a browser with internet access.
-
-If your browser blocks local script execution, run a small local server from this folder:
-
-```powershell
-python -m http.server 8000
-```
-
-Then visit `http://localhost:8000`.
 
 ## Project Files
 
