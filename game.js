@@ -1,15 +1,27 @@
+// ============================================
+// MAIN GAME INITIALIZATION
+// ============================================
+
 (function () {
+  // Create the 3D scene - the container for all game objects
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090b11);
-  scene.fog = new THREE.FogExp2(0x0a0d14, 0.02);
+  scene.background = new THREE.Color(0x090b11); // Dark blue-black background color
+  scene.fog = new THREE.FogExp2(0x0a0d14, 0.02); // Add fog for depth perception
 
+  // Create the camera - determines what part of the scene is visible
   const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 2000);
+  
+  // Create the renderer - draws the 3D scene to the web page
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  document.body.appendChild(renderer.domElement);
+  renderer.setSize(window.innerWidth, window.innerHeight); // Set canvas to full window size
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for high-DPI screens
+  renderer.shadowMap.enabled = true; // Enable shadow rendering
+  document.body.appendChild(renderer.domElement); // Add canvas to the HTML body
 
+  // ============================================
+  // UI ELEMENT REFERENCES
+  // ============================================
+  // Store references to all HTML UI elements for easy access
   const ui = {
     stats: document.getElementById("statsLabel"),
     resources: document.getElementById("resourcesLabel"),
@@ -38,21 +50,38 @@
     townStatsPanel: document.getElementById("townStatsPanel"),
     slashDamageText: document.getElementById("slashDamageText")
   };
+  
+  // Get 2D context for drawing the minimap
   const mapContext = ui.mapCanvas.getContext("2d");
 
+  // Get all store purchase buttons from the HTML
   const storeButtons = Array.from(document.querySelectorAll("[data-buy]"));
+  
+  // Clock for tracking delta time between frames (for smooth animations)
   const clock = new THREE.Clock();
+  
+  // Object to track which keyboard keys are currently pressed
   const keys = {};
+  
+  // Group to hold all world objects (terrain, buildings, etc.)
   const worldGroup = new THREE.Group();
   scene.add(worldGroup);
 
+  // ============================================
+  // CHARACTER CLASS DEFINITIONS
+  // ============================================
+  // Define the different character classes with their stats
   const classes = {
-    tank: { maxHp: 220, damage: 15, speed: 5.8, name: "Tank" },
-    hunter: { maxHp: 170, damage: 20, speed: 6.8, name: "Hunter" },
-    assassin: { maxHp: 140, damage: 24, speed: 7.2, name: "Assassin" },
-    rogue: { maxHp: 200, damage: 18, speed: 7.0, name: "Rogue" }
+    tank: { maxHp: 220, damage: 15, speed: 5.8, name: "Tank" },       // High HP, low damage, slow
+    hunter: { maxHp: 170, damage: 20, speed: 6.8, name: "Hunter" },   // Medium HP, good damage, fast
+    assassin: { maxHp: 140, damage: 24, speed: 7.2, name: "Assassin" }, // Low HP, highest damage, fastest
+    rogue: { maxHp: 200, damage: 18, speed: 7.0, name: "Rogue" }      // Balanced stats
   };
 
+  // ============================================
+  // SHARED MATERIALS
+  // ============================================
+  // Reusable materials for different object types (optimizes memory)
   const shared = {
     floor: new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.95 }),
     wall: new THREE.MeshStandardMaterial({ color: 0x615548, roughness: 1 }),
@@ -62,6 +91,10 @@
     potion: new THREE.MeshStandardMaterial({ color: 0x4bc3a7, emissive: 0x21554a, roughness: 0.25 })
   };
 
+  // ============================================
+  // MAIN GAME STATE
+  // ============================================
+  // Global game state object - holds all game variables
   const game = {
     started: false,
     paused: false,
@@ -95,78 +128,97 @@
       pitch: -0.18
     },
     player: {
-      maxHp: 100,
-      hp: 100,
-      damage: 18,
-      speed: 6.6,
-      coins: 0,
-      potions: 2,
-      attackRange: 2.6,
-      attackRate: 0.42,
-      critChance: 0.08,
-      luck: 0.05,
-      level: 1,
-      xp: 0,
-      position: new THREE.Vector3(0, 0, 0),
-      velocity: new THREE.Vector3(0, 0, 0),
-      isJumping: false,
-      jumpPower: 12,
-      gravity: 24,
-      groundLevel: 0.7,
-      mesh: null,
-      sprite: null,
-      animationTime: 0,
-      isMoving: false,
-      isRunning: false,
-      walkCycle: 0,
-      model: {}
+      maxHp: 100,           // Maximum health points
+      hp: 100,              // Current health points
+      damage: 18,           // Attack damage
+      speed: 6.6,           // Movement speed
+      coins: 0,             // Currency amount
+      potions: 2,           // Health potions in inventory
+      attackRange: 2.6,     // How far attacks can reach
+      attackRate: 0.42,     // Time between attacks (seconds)
+      critChance: 0.08,     // 8% chance for critical hits
+      luck: 0.05,           // 5% luck factor for drops
+      level: 1,             // Current player level
+      xp: 0,                // Experience points
+      position: new THREE.Vector3(0, 0, 0),  // 3D position in world
+      velocity: new THREE.Vector3(0, 0, 0),  // Current movement velocity
+      isJumping: false,     // Whether player is in the air
+      jumpPower: 12,        // Initial upward velocity when jumping
+      gravity: 24,          // Downward acceleration
+      groundLevel: 0.7,     // Y position of the ground
+      mesh: null,           // Reference to player 3D model
+      sprite: null,         // Reference to player face sprite
+      animationTime: 0,     // Timer for walk cycle animation
+      isMoving: false,      // Whether player is moving
+      isRunning: false,     // Whether player is dashing/running
+      walkCycle: 0,         // Current frame in walk animation
+      model: {}             // References to body parts for animation
     }
   };
 
-  setupScene();
-  createGameOverOverlay();
-  bindEvents();
-  buildTown();
-  updateHud();
-  animate();
+  // ============================================
+  // INITIALIZATION
+  // ============================================
+  // Set up the 3D scene, create UI, bind input handlers, build the town, update display, start game loop
+  setupScene();           // Create lights, camera, and player model
+  createGameOverOverlay(); // Create the game over screen HTML
+  bindEvents();           // Set up keyboard/mouse event listeners
+  buildTown();            // Generate the starting town area
+  updateHud();            // Update the UI with initial values
+  animate();              // Start the main game loop
 
+  // ============================================
+  // SCENE SETUP - Create lights and player model
+  // ============================================
   function setupScene() {
+    // Add ambient light (sky color, ground color, intensity)
     scene.add(new THREE.HemisphereLight(0x8ca7ff, 0x24170d, 1.08));
 
+    // Create the main directional light (sun) - casts shadows
     const sun = new THREE.DirectionalLight(0xffedc9, 1.75);
-    sun.position.set(52, 72, 36);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -90;
+    sun.position.set(52, 72, 36);           // Position high in the sky
+    sun.castShadow = true;                  // Enable shadow casting
+    sun.shadow.mapSize.set(2048, 2048);     // High-res shadow map
+    sun.shadow.camera.left = -90;           // Shadow camera bounds
     sun.shadow.camera.right = 90;
     sun.shadow.camera.top = 90;
     sun.shadow.camera.bottom = -90;
     scene.add(sun);
 
+    // Add fill light to brighten shadows
     const fill = new THREE.PointLight(0x6dc8ff, 1.1, 240);
     fill.position.set(0, 36, 0);
     scene.add(fill);
 
-    const player = new THREE.Group();
+    // ============================================
+    // CREATE PLAYER MODEL
+    // ============================================
+    const player = new THREE.Group();  // Group to hold all body parts
+    
+    // Create materials for different body parts
     const cloakMat = new THREE.MeshStandardMaterial({ color: 0x11151c, roughness: 0.9 });
     const skinMat = new THREE.MeshStandardMaterial({ color: 0x5f6f73, roughness: 0.82 });
 
+    // Create torso (body)
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.25, 0.52), cloakMat);
-    torso.position.y = 1.6;
-    torso.castShadow = true;
+    torso.position.y = 1.6;              // Position at chest height
+    torso.castShadow = true;             // Enable shadows
     player.add(torso);
 
+    // Create head
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.72, 0.58), skinMat);
     head.position.y = 2.48;
     head.castShadow = true;
     player.add(head);
 
+    // Create hood (cone on top of head)
     const hood = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.1, 8), cloakMat);
     hood.position.set(0, 2.8, -0.05);
-    hood.rotation.x = Math.PI;
+    hood.rotation.x = Math.PI;           // Flip upside down
     hood.castShadow = true;
     player.add(hood);
 
+    // Create face (textured plane)
     const face = new THREE.Mesh(
       new THREE.PlaneGeometry(0.85, 1.05),
       new THREE.MeshBasicMaterial({ map: createElfTexture(), transparent: true })
@@ -174,15 +226,17 @@
     face.position.set(0, 2.5, 0.33);
     player.add(face);
 
+    // Create arms (left and right)
     const armLeft = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.1, 0.28), cloakMat);
     const armRight = armLeft.clone();
-    armLeft.position.set(-0.72, 1.65, 0);
-    armRight.position.set(0.72, 1.65, 0);
+    armLeft.position.set(-0.72, 1.65, 0);   // Left side
+    armRight.position.set(0.72, 1.65, 0);   // Right side
     armLeft.castShadow = true;
     armRight.castShadow = true;
     player.add(armLeft);
     player.add(armRight);
 
+    // Create legs (left and right)
     const legLeft = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1.25, 0.34), new THREE.MeshStandardMaterial({ color: 0x232933, roughness: 0.92 }));
     const legRight = legLeft.clone();
     legLeft.position.set(-0.22, 0.63, 0);
@@ -192,59 +246,70 @@
     player.add(legLeft);
     player.add(legRight);
 
+    // Create shadow underneath player
     const shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.8, 24),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22 })
     );
-    shadow.rotation.x = -Math.PI / 2;
+    shadow.rotation.x = -Math.PI / 2;    // Flatten to ground
     shadow.position.y = 0.02;
     player.add(shadow);
 
+    // Add player to scene and store references
     scene.add(player);
-    game.player.mesh = player;
-    game.player.sprite = face;
-    game.player.model = { torso, head, face, armLeft, armRight, legLeft, legRight, shadow };
+    game.player.mesh = player;           // Store 3D model reference
+    game.player.sprite = face;           // Store face sprite reference
+    game.player.model = { torso, head, face, armLeft, armRight, legLeft, legRight, shadow }; // Store body parts
   }
 
+  // ============================================
+  // EVENT BINDING - Set up all input handlers
+  // ============================================
   function bindEvents() {
+    // Handle window resize - update camera aspect ratio and renderer size
     window.addEventListener("resize", onResize);
 
+    // Handle key press - track pressed keys and trigger actions
     window.addEventListener("keydown", (event) => {
-      if (game.isGameOver) {
-        return;
-      }
+      if (game.isGameOver) return;  // Don't process input if game is over
+      
       const key = event.key.toLowerCase();
-      keys[key] = true;
+      keys[key] = true;  // Mark key as pressed
+      
+      // Shift - dash ability
       if (key === "shift") {
         event.preventDefault();
         dash();
       }
+      // Space - jump
       if (key === " ") {
         event.preventDefault();
         jump();
       }
+      // Q - use health potion
       if (key === "q") {
         drinkPotion();
       }
+      // P - pause/unpause game
       if (key === "p") {
         if (!game.storeOpen && ui.rewardModal.classList.contains("hidden")) {
           game.paused = !game.paused;
           updatePauseMenu();
         }
       }
+      // E - interact with objects
       if (key === "e") {
         interact();
       }
     });
 
+    // Handle key release - mark keys as not pressed
     window.addEventListener("keyup", (event) => {
-      if (game.isGameOver) {
-        return;
-      }
+      if (game.isGameOver) return;
       keys[event.key.toLowerCase()] = false;
     });
 
-    // Class selection buttons
+    // Class selection buttons - let player choose character class
     const classButtons = Array.from(document.querySelectorAll(".class-button"));
     classButtons.forEach((button) => {
       button.addEventListener("click", () => {
@@ -252,34 +317,38 @@
       });
     });
 
+    // Resume button - unpause the game
     ui.resumeButton.addEventListener("click", () => {
       game.paused = false;
       updatePauseMenu();
       requestPointer();
     });
 
+    // Quit button - close the game window
     ui.quitButton.addEventListener("click", () => {
-     window.close();
+      window.close();
     });
 
+    // Close store button
     ui.closeStoreButton.addEventListener("click", () => {
       closeStore();
       requestPointer();
     });
 
+    // Click on game canvas - request pointer lock for mouse control
     renderer.domElement.addEventListener("click", () => {
-      if (game.isGameOver) {
-        return;
-      }
+      if (game.isGameOver) return;
       if (game.started) {
         requestPointer();
       }
     });
 
+    // Pointer lock change - track if mouse is locked to game
     document.addEventListener("pointerlockchange", () => {
       game.pointerLocked = document.pointerLockElement === renderer.domElement;
     });
 
+    // Mouse movement - rotate camera (look around)
     window.addEventListener("mousemove", (event) => {
       if (game.isGameOver || !game.pointerLocked || !game.started) {
         return;
@@ -310,34 +379,49 @@
     });
   }
 
+  // ============================================
+  // SELECT CLASS - Choose character class at game start
+  // ============================================
   function selectClass(className) {
     const selectedClass = classes[className];
     if (!selectedClass) return;
 
-    // Apply class stats to player
+    // Apply selected class stats to player
     game.player.maxHp = selectedClass.maxHp;
     game.player.hp = selectedClass.maxHp;
     game.player.damage = selectedClass.damage;
     game.player.speed = selectedClass.speed;
 
+    // Start the game
     game.started = true;
-    ui.overlay.classList.add("hidden");
+    ui.overlay.classList.add("hidden");  // Hide class selection screen
     addLog(`Welcome, ${selectedClass.name}! Walk to the central portal and press E.`);
-    requestPointer();
+    requestPointer();  // Lock mouse to game
   }
 
+  // ============================================
+  // REQUEST POINTER LOCK - Lock mouse to game canvas
+  // ============================================
   function requestPointer() {
     if (renderer.domElement.requestPointerLock) {
       renderer.domElement.requestPointerLock();
     }
   }
 
+  // ============================================
+  // ON RESIZE - Handle window resizing
+  // ============================================
   function onResize() {
+    // Update camera aspect ratio
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    // Update renderer size
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  // ============================================
+  // CREATE GAME OVER OVERLAY - Build the death screen HTML
+  // ============================================
   function createGameOverOverlay() {
     const wrapper = document.createElement("div");
     wrapper.id = "gameOverOverlay";
@@ -408,10 +492,16 @@
     }
   }
 
+  // ============================================
+  // MAIN GAME LOOP - Called every frame
+  // ============================================
   function animate() {
-    requestAnimationFrame(animate);
+    requestAnimationFrame(animate);  // Schedule next frame
 
+    // Get time since last frame (capped at 0.033s to prevent huge jumps)
     const delta = Math.min(clock.getDelta(), 0.033);
+    
+    // If game hasn't started or is paused, just render scene and update UI
     if (!game.started || game.paused) {
       updateHud();
       drawMap();
@@ -419,23 +509,26 @@
       return;
     }
 
+    // Decrease all cooldown timers
     game.interactionCooldown = Math.max(0, game.interactionCooldown - delta);
     game.attackTimer = Math.max(0, game.attackTimer - delta);
     game.dashTimer = Math.max(0, game.dashTimer - delta);
     game.dashCooldown = Math.max(0, game.dashCooldown - delta);
     game.transitionTimer = Math.max(0, game.transitionTimer - delta);
 
-    updatePortalFx();
-    updatePlayer(delta);
-    updateMonsters(delta);
-    updatePickups(delta);
-    updateAttacks(delta);
-    updateProps(delta);
-    updateCamera(delta);
-    checkQuestProgress();
-    updateHud();
-    drawMap();
+    // Update all game systems
+    updatePortalFx();        // Animate portal effects
+    updatePlayer(delta);     // Move player and handle input
+    updateMonsters(delta);   // Update enemy AI and movement
+    updatePickups(delta);    // Handle item pickups
+    updateAttacks(delta);    // Process combat attacks
+    updateProps(delta);      // Update interactive objects
+    updateCamera(delta);     // Smooth camera follow
+    checkQuestProgress();    // Check if quest objectives met
+    updateHud();             // Update UI displays
+    drawMap();               // Draw minimap
 
+    // Render the 3D scene
     renderer.render(scene, camera);
   }
 
@@ -453,38 +546,58 @@
     }
   }
 
+  // ============================================
+  // PLAYER UPDATE - Handle movement and physics
+  // ============================================
   function updatePlayer(delta) {
+    // Get movement input from WASD keys (D-A for X, S-W for Z)
     const moveInput = new THREE.Vector3(
       (keys.d ? 1 : 0) - (keys.a ? 1 : 0),
       0,
       (keys.s ? 1 : 0) - (keys.w ? 1 : 0)
     );
 
+    // Store previous position for collision detection
     const previous = game.player.position.clone();
+    
+    // Check if player is moving
     game.player.isMoving = moveInput.lengthSq() > 0;
+    
     if (moveInput.lengthSq() > 0) {
+      // Normalize input to prevent faster diagonal movement
       moveInput.normalize();
+      
+      // Get camera direction (yaw) for relative movement
       const yaw = game.cameraRig.yaw;
+      
+      // Calculate forward and right vectors based on camera direction
       const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const right = new THREE.Vector3(forward.z, 0, -forward.x);
+      
+      // Combine inputs with direction vectors
       const worldMove = new THREE.Vector3()
         .addScaledVector(right, moveInput.x)
         .addScaledVector(forward, moveInput.z)
         .normalize();
 
+      // Calculate speed (faster when dashing)
       const speed = game.dashTimer > 0 ? game.player.speed * 2.8 : game.player.speed;
       game.player.isRunning = game.dashTimer > 0;
+      
+      // Apply movement to player position
       game.player.position.addScaledVector(worldMove, speed * delta);
+      
+      // Rotate player model to face movement direction
       game.player.mesh.rotation.y = Math.atan2(worldMove.x, worldMove.z);
     } else {
       game.player.isRunning = false;
     }
 
-    // Apply gravity
+    // Apply gravity to vertical velocity
     game.player.velocity.y -= game.player.gravity * delta;
     game.player.position.y += game.player.velocity.y * delta;
 
-    // Keep player above ground
+    // Keep player above ground level
     if (game.player.position.y <= game.player.groundLevel) {
       game.player.position.y = game.player.groundLevel;
       game.player.velocity.y = 0;
@@ -500,39 +613,56 @@
     }
   }
 
+  // ============================================
+  // PLAYER ANIMATION - Animate body parts for walking
+  // ============================================
   function animatePlayerModel(delta) {
+    // Get references to body parts
     const { torso, head, face, armLeft, armRight, legLeft, legRight } = game.player.model;
-    if (!torso) {
-      return;
-    }
+    if (!torso) return;  // Exit if player model not set up yet
 
+    // Animation speed and stride depend on running state
     const speed = game.player.isRunning ? 11 : 7;
     const stride = game.player.isRunning ? 0.95 : 0.55;
+    
+    // Increment animation timer
     game.player.animationTime += delta * speed;
 
+    // Calculate cycle (sine wave for arm/leg swing) and bounce (vertical bob)
     const cycle = game.player.isMoving ? Math.sin(game.player.animationTime) : 0;
     const bounce = game.player.isMoving ? Math.abs(Math.sin(game.player.animationTime)) * (game.player.isRunning ? 0.12 : 0.06) : 0;
 
+    // Apply bounce to upper body (torso, head, face move up and down together)
     torso.position.y = 1.6 + bounce;
     head.position.y = 2.48 + bounce;
     face.position.y = 2.5 + bounce;
 
+    // Swing arms in opposite directions
     armLeft.rotation.x = cycle * stride;
     armRight.rotation.x = -cycle * stride;
+    
+    // Move legs in opposite directions (opposite to arms)
     legLeft.rotation.x = -cycle * stride;
     legRight.rotation.x = cycle * stride;
 
+    // Apply bounce to arms and legs
     armLeft.position.y = 1.65 + bounce;
     armRight.position.y = 1.65 + bounce;
     legLeft.position.y = 0.63 + bounce * 0.2;
     legRight.position.y = 0.63 + bounce * 0.2;
   }
 
+  // ============================================
+  // PLAYER COLLISION - Keep player within bounds
+  // ============================================
   function constrainPlayer(previous) {
+    // In town mode, keep player within circular boundary
     if (game.mode === "town") {
-      const radius = 130;
+      const radius = 130;  // Maximum distance from center
       const planar = game.player.position.clone();
-      planar.y = 0;
+      planar.y = 0;  // Ignore vertical position
+      
+      // If player is outside the circle, push them back
       if (planar.length() > radius) {
         planar.setLength(radius);
         game.player.position.x = planar.x;
@@ -541,32 +671,49 @@
       return;
     }
 
+    // In dungeon mode, check if tile is walkable
     const tileSize = game.world.tileSize;
     const offset = game.world.offset;
     const cellX = Math.round((game.player.position.x + offset) / tileSize);
     const cellZ = Math.round((game.player.position.z + offset) / tileSize);
+    
+    // If tile is not walkable (wall), revert to previous position
     if (!isWalkable(cellX, cellZ)) {
       game.player.position.copy(previous);
     }
   }
 
+  // ============================================
+  // CAMERA UPDATE - Smooth follow behind player
+  // ============================================
   function updateCamera(delta) {
     const player = game.player.position;
-    const yaw = game.cameraRig.yaw;
-    const pitch = game.cameraRig.pitch;
+    const yaw = game.cameraRig.yaw;      // Horizontal rotation
+    const pitch = game.cameraRig.pitch;  // Vertical rotation
 
+    // Calculate forward and side vectors based on camera direction
     const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     const side = new THREE.Vector3(forward.z, 0, -forward.x);
+    
+    // Calculate desired camera position (behind and above player)
     const desired = player.clone()
-      .addScaledVector(forward, 4.2)
-      .addScaledVector(side, 2.2)
-      .add(new THREE.Vector3(0, 3.5 + pitch * 4, 0));
+      .addScaledVector(forward, 4.2)   // 4.2 units behind
+      .addScaledVector(side, 2.2)       // 2.2 units to the side
+      .add(new THREE.Vector3(0, 3.5 + pitch * 4, 0));  // 3.5+ units up
 
+    // Smoothly interpolate camera position (lerp)
     camera.position.lerp(desired, 1 - Math.pow(0.00005, delta));
+    
+    // Make player face always face the camera
     game.player.sprite.lookAt(camera.position);
+    
+    // Point camera at player's head level
     camera.lookAt(player.clone().add(new THREE.Vector3(0, 1.8, 0)));
   }
 
+  // ============================================
+  // HUD UPDATE - Update all UI displays
+  // ============================================
   function updateHud() {
     const totalSlashDamage = Math.round(game.player.damage * 1.85);
     ui.location.textContent = game.mode === "town" ? "Ancient Hub" : `Dungeon Floor ${game.dungeonLevel}`;
@@ -595,34 +742,47 @@
     updatePauseMenu();
   }
 
+  // ============================================
+  // DRAW MAP - Render the minimap
+  // ============================================
   function drawMap() {
     const ctx = mapContext;
     const w = ui.mapCanvas.width;
     const h = ui.mapCanvas.height;
+    
+    // Clear and fill background
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = "#081018";
     ctx.fillRect(0, 0, w, h);
 
+    // Draw town map (circular with portal and shop markers)
     if (game.mode === "town") {
       const center = w / 2;
+      // Draw concentric circles for distance reference
       ctx.strokeStyle = "rgba(174, 201, 226, 0.12)";
       [50, 85, 130].forEach((r) => {
         ctx.beginPath();
         ctx.arc(center, center, r * 0.75, 0, Math.PI * 2);
         ctx.stroke();
       });
+      // Draw portal (purple)
       drawDot(center, center, 8, "#b97cff");
+      // Draw shop (cyan)
       drawDot(center - 64, center, 7, "#6ce0e9");
+      // Draw player position (yellow)
       const px = center + game.player.position.x * 2.1;
       const pz = center + game.player.position.z * 2.1;
       drawDot(px, pz, 6, "#ffe3ac");
       return;
     }
 
+    // Draw dungeon map (grid-based)
     const grid = game.world.grid;
-    const cell = Math.max(2, Math.floor(w / grid.length));
-    const ox = Math.floor((w - grid.length * cell) / 2);
-    const oy = Math.floor((h - grid.length * cell) / 2);
+    const cell = Math.max(2, Math.floor(w / grid.length));  // Calculate cell size
+    const ox = Math.floor((w - grid.length * cell) / 2);    // Offset X
+    const oy = Math.floor((h - grid.length * cell) / 2);    // Offset Y
+    
+    // Draw each tile (0 = floor, 1 = wall)
     for (let z = 0; z < grid.length; z += 1) {
       for (let x = 0; x < grid.length; x += 1) {
         ctx.fillStyle = grid[z][x] === 0 ? "#34424a" : "#101820";
@@ -630,24 +790,32 @@
       }
     }
 
+    // Draw chests (gold)
     game.chests.forEach((chest) => {
       if (!chest.opened) {
         const point = worldToMapCell(chest.mesh.position, cell, ox, oy);
         drawDot(point.x, point.y, Math.max(2, cell), "#f4bf5f");
       }
     });
+    
+    // Draw monsters (red for boss, gray for regular)
     game.monsters.forEach((monster) => {
       const point = worldToMapCell(monster.mesh.position, cell, ox, oy);
       drawDot(point.x, point.y, Math.max(2, cell), monster.type === "boss" ? "#ff0000" : "#7f989b");
     });
+    
+    // Draw exit portal (purple) if visible
     if (game.worldExit && game.worldExit.visible) {
       const point = worldToMapCell(game.worldExit.position, cell, ox, oy);
       drawDot(point.x, point.y, Math.max(2, cell), "#ca93ff");
     }
+    
+    // Draw player (yellow)
     const playerPoint = worldToMapCell(game.player.position, cell, ox, oy);
     drawDot(playerPoint.x, playerPoint.y, Math.max(2, cell), "#ffe3ac");
   }
 
+  // Helper function to draw a dot on the map
   function drawDot(x, y, radius, color) {
     mapContext.fillStyle = color;
     mapContext.beginPath();
@@ -655,22 +823,34 @@
     mapContext.fill();
   }
 
+  // Convert 3D world position to 2D map position
   function worldToMapCell(position, cell, ox, oy) {
     const x = Math.round((position.x + game.world.offset) / game.world.tileSize);
     const z = Math.round((position.z + game.world.offset) / game.world.tileSize);
     return { x: ox + x * cell + cell / 2, y: oy + z * cell + cell / 2 };
   }
 
+  // ============================================
+  // ADD LOG - Add message to game log display
+  // ============================================
   function addLog(text) {
+    // Add new message to front of array
     game.logs.unshift(text);
+    // Keep only last 8 messages
     game.logs = game.logs.slice(0, 8);
+    // Update HTML display
     ui.log.innerHTML = game.logs.map((entry) => `<div>${entry}</div>`).join("");
   }
 
+  // ============================================
+  // CLEAR WORLD - Remove all objects when changing areas
+  // ============================================
   function clearWorld() {
+    // Remove all children from world group
     while (worldGroup.children.length > 0) {
       disposeTree(worldGroup.children[0]);
     }
+    // Clear all game arrays
     game.monsters = [];
     game.attacks = [];
     game.pickups = [];
@@ -702,21 +882,32 @@
     return Object.values(shared).includes(material);
   }
 
+  // ============================================
+  // BUILD TOWN - Create the starting hub area
+  // ============================================
   function buildTown() {
-    clearWorld();
+    clearWorld();  // Remove all objects from previous area
+    
+    // Set game mode to town
     game.mode = "town";
     game.dungeonCleared = false;
     game.storeOpen = false;
+    
+    // Heal player when returning to town
     game.player.hp = game.player.maxHp;
     ui.storeModal.classList.add("hidden");
-    // Show controls and town health bar, hide dungeon health bar
+    
+    // Show town-specific UI, hide dungeon UI
     ui.controlsPanel.classList.remove("hidden");
     ui.healthBarPanel.classList.add("hidden");
     ui.healthBarPanelTown.classList.remove("hidden");
+    
+    // Reset player position and camera
     game.player.position.set(0, 0.8, 32);
     game.cameraRig.yaw = Math.PI;
     game.player.mesh.position.copy(game.player.position);
 
+    // Create circular town floor
     const floor = new THREE.Mesh(
       new THREE.CylinderGeometry(140, 160, 1.5, 64),
       new THREE.MeshStandardMaterial({ color: 0x263d35, roughness: 0.95 })
@@ -724,6 +915,7 @@
     floor.receiveShadow = true;
     worldGroup.add(floor);
 
+    // Create raised platform in center
     const centerDais = new THREE.Mesh(
       new THREE.CylinderGeometry(8, 11, 1.8, 32),
       new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.88 })
@@ -733,6 +925,7 @@
     centerDais.receiveShadow = true;
     worldGroup.add(centerDais);
 
+    // Create portal (dungeon entrance)
     const portal = new THREE.Group();
     const portalRing = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.38, 18, 72), shared.portal);
     portalRing.rotation.x = Math.PI / 2;
@@ -744,21 +937,25 @@
     worldGroup.add(portal);
     game.portalMesh = portal;
 
+    // Build surrounding structures
     buildDungeonEntrance();
-
     buildShop();
-
     buildStatueRings();
 
+    // Define interactive zones
     game.world = {
       storeZone: new THREE.Vector3(-32, 0.6, 0),
       portalZone: new THREE.Vector3(0, 0.6, 0)
     };
 
+    // Set initial quest and show message
     setQuest(makeQuest("town"));
     addLog("The hub statues watch over the portal. Press E at the center to enter the dungeon.");
   }
 
+  // ============================================
+  // BUILD DUNGEON ENTRANCE - Archway leading to dungeon
+  // ============================================
   function buildDungeonEntrance() {
     const entrance = new THREE.Group();
     entrance.position.set(0, 0.9, 0);
@@ -1017,30 +1214,37 @@
     return group;
   }
 
+  // ============================================
+  // ENTER DUNGEON - Transition from town to dungeon
+  // ============================================
   function enterDungeon() {
+    // Start transition effect
     game.transitionTimer = 1.2;
     ui.transitionFx.classList.remove("hidden");
     ui.transitionFx.classList.add("active");
 
+    // Wait for transition effect, then generate dungeon
     window.setTimeout(() => {
+      // Increment dungeon level
       game.dungeonLevel += 1;
-      game.floorSeed += 17;
+      game.floorSeed += 17;  // Change seed for new dungeon layout
       game.mode = "dungeon";
       game.dungeonCleared = false;
       clearWorld();
 
-      // Hide controls and town health bar, show dungeon health bar
+      // Switch UI from town to dungeon mode
       ui.controlsPanel.classList.add("hidden");
       ui.healthBarPanel.classList.remove("hidden");
       ui.healthBarPanelTown.classList.add("hidden");
 
-      const rng = mulberry32(game.floorSeed);
+      // Generate dungeon using procedural generation
+      const rng = mulberry32(game.floorSeed);  // Seeded random number generator
       closeStore();
-      const size = 33 + game.dungeonLevel * 3;
-      const grid = createGrid(size, size, 1);
-      const rooms = carveRooms(grid, rng, size);
-      connectRooms(grid, rooms);
-      sprinkleTurns(grid, rng, size);
+      const size = 33 + game.dungeonLevel * 3;  // Dungeon gets bigger each level
+      const grid = createGrid(size, size, 1);   // Create empty grid (all walls)
+      const rooms = carveRooms(grid, rng, size); // Carve out rooms
+      connectRooms(grid, rooms);                 // Connect rooms with corridors
+      sprinkleTurns(grid, rng, size);            // Add random turns
 
       const tileSize = 4;
       const offset = ((size - 1) * tileSize) / 2;
@@ -1268,29 +1472,41 @@
     }
   }
 
+  // ============================================
+  // MONSTER UPDATE - AI and combat for enemies
+  // ============================================
   function updateMonsters(delta) {
-    const detectionRange = 9.0;
-    const attackRange = 2.0;
+    const detectionRange = 9.0;   // How far monsters can see the player
+    const attackRange = 2.0;      // How close monster must be to attack
 
+    // Loop through all active monsters
     for (const monster of game.monsters) {
+      // Update animation timer
       monster.anim += delta * monster.speed * 1.8;
+      
+      // Calculate distance and direction to player
       const toPlayer = new THREE.Vector3().subVectors(game.player.position, monster.mesh.position);
-      toPlayer.y = 0;
+      toPlayer.y = 0;  // Ignore vertical difference
       const distance = toPlayer.length();
-      const seesPlayer = distance <= detectionRange;
+      const seesPlayer = distance <= detectionRange;  // Can monster see player?
 
+      // If monster sees player and is not on top of them, move towards player
       if (seesPlayer && distance > 0.1) {
         moveMonsterTowards(monster, toPlayer, delta);
-        monster.mesh.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+        monster.mesh.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);  // Face player
       }
 
+      // Animate the monster
       animateMonster(monster);
 
+      // Handle monster attacking player
       monster.hitCooldown -= delta;
       if (seesPlayer && distance < attackRange && monster.hitCooldown <= 0) {
-        monster.hitCooldown = 0.95;
-        game.player.hp -= monster.damage;
+        monster.hitCooldown = 0.95;  // Reset attack cooldown
+        game.player.hp -= monster.damage;  // Deal damage to player
         addLog(`You were hit for ${Math.round(monster.damage)}.`);
+        
+        // Check if player died
         if (game.player.hp <= 0) {
           handleDefeat();
           break;
@@ -1299,7 +1515,11 @@
     }
   }
 
+  // ============================================
+  // MONSTER ANIMATION - Animate different enemy types
+  // ============================================
   function animateMonster(monster) {
+    // Slimes and bosses use a pulsing/squishing animation
     if (monster.type === "slime" || monster.type === "boss") {
       monster.visuals.root.scale.y = 0.92 + Math.abs(Math.sin(monster.anim)) * 0.18;
       monster.visuals.root.scale.x = 1.02 - Math.abs(Math.sin(monster.anim)) * 0.08;
@@ -1307,6 +1527,7 @@
       return;
     }
 
+    // Other monsters use limb animation (walk cycle)
     const cycle = Math.sin(monster.anim);
     monster.visuals.legLeft.rotation.x = cycle * 0.6;
     monster.visuals.legRight.rotation.x = -cycle * 0.6;
@@ -1314,19 +1535,29 @@
     monster.visuals.armRight.rotation.x = cycle * 0.5;
   }
 
+  // ============================================
+  // PLAYER ATTACK - Attempt to attack nearest enemy
+  // ============================================
   function tryAttack() {
+    // Don't allow attack if still on cooldown
     if (game.attackTimer > 0) {
       return;
     }
+    
+    // Find closest monster within attack range
     const target = findClosestMonster(game.player.attackRange + 0.9);
     if (!target) {
-      return;
+      return;  // No valid target
     }
 
+    // Set attack cooldown
     game.attackTimer = game.player.attackRate;
+    
+    // Calculate damage (check for critical hit)
     const critical = Math.random() < game.player.critChance;
     const damage = critical ? game.player.damage * 1.85 : game.player.damage;
 
+    // Create visual slash effect (sword swing)
     const slash = new THREE.Mesh(
       new THREE.TorusGeometry(0.9, 0.12, 8, 24, Math.PI),
       new THREE.MeshStandardMaterial({ color: critical ? 0xffd76f : 0x9be6ff, emissive: critical ? 0xa86812 : 0x1e5f6c, transparent: true })
@@ -1334,16 +1565,23 @@
     slash.rotation.z = Math.PI / 2;
     slash.position.copy(game.player.position).add(new THREE.Vector3(0, 1.4, 0));
     worldGroup.add(slash);
-    game.attacks.push({ mesh: slash, life: 0.18 });
+    game.attacks.push({ mesh: slash, life: 0.18 });  // Add to attacks list (will fade out)
 
+    // Apply damage to target
     target.hp -= damage;
     addLog(`${critical ? "Critical hit" : "Hit"} for ${Math.round(damage)}.`);
+    
+    // Check if monster died
     if (target.hp <= 0) {
       killMonster(target);
     }
   }
 
+  // ============================================
+  // ATTACK EFFECTS UPDATE - Fade out slash visuals
+  // ============================================
   function updateAttacks(delta) {
+    // Filter out expired attacks and update remaining ones
     game.attacks = game.attacks.filter((attack) => {
       attack.life -= delta;
       attack.mesh.scale.multiplyScalar(1 + delta * 5);
@@ -1369,14 +1607,27 @@
     return best;
   }
 
+  // ============================================
+  // KILL MONSTER - Handle monster death
+  // ============================================
   function killMonster(monster) {
+    // Increment kill counter
     game.stats.slainMonsters += 1;
+    
+    // Award coins and XP
     game.player.coins += monster.coin;
     game.player.xp += 20 + monster.coin;
+    
+    // Check for level up
     maybeLevelUp();
+    
+    // Maybe drop a potion (based on luck)
     maybeDropPotion(monster.mesh.position);
+    
+    // Update quest progress
     incrementQuest("kill");
 
+    // If boss, mark dungeon as cleared and show exit
     if (monster.type === "boss") {
       game.dungeonCleared = true;
       if (game.worldExit) {
@@ -1387,21 +1638,31 @@
       addLog(`Monster defeated. +${monster.coin} coins.`);
     }
 
+    // Remove monster from game
     game.monsters = game.monsters.filter((entry) => entry !== monster);
-    disposeTree(monster.mesh);
+    disposeTree(monster.mesh);  // Clean up 3D objects
   }
 
+  // ============================================
+  // MAYBE DROP POTION - Random chance to drop health potion
+  // ============================================
   function maybeDropPotion(position) {
+    // 18% base chance + luck factor
     if (Math.random() > 0.18 + game.player.luck) {
       return;
     }
+    // Create potion mesh
     const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.45, 4, 8), shared.potion);
     mesh.position.copy(position);
     mesh.position.y = 0.8;
     worldGroup.add(mesh);
+    // Add to pickups list
     game.pickups.push({ type: "potion", amount: 1, mesh });
   }
 
+  // ============================================
+  // UPDATE PICKUPS - Handle item collection
+  // ============================================
   function updatePickups(delta) {
     const bob = Math.sin(performance.now() * 0.004) * 0.16;
     game.pickups = game.pickups.filter((pickup) => {
@@ -1418,55 +1679,83 @@
     });
   }
 
+  // ============================================
+  // UPDATE PROPS - Animate rotating objects (portal, props)
+  // ============================================
   function updateProps(delta) {
+    // Rotate portal
     if (game.portalMesh) {
       game.portalMesh.rotation.y += delta * 0.6;
     }
+    // Rotate dungeon exit
     if (game.worldExit) {
       game.worldExit.rotation.y += delta * 0.8;
     }
+    // Rotate decorative props
     game.props.forEach((prop) => {
       prop.rotation.y += delta * 0.2;
     });
   }
 
+  // ============================================
+  // DASH - Quick forward burst (Shift key)
+  // ============================================
   function dash() {
+    // Can't dash if on cooldown
     if (game.dashCooldown > 0) {
       return;
     }
-    game.dashTimer = 0.22;
-    game.dashCooldown = 1.7;
+    // Activate dash (increases speed in updatePlayer)
+    game.dashTimer = 0.22;    // How long dash lasts
+    game.dashCooldown = 1.7;  // Time before next dash
     addLog("Dash!");
   }
 
+  // ============================================
+  // JUMP - Make player jump
+  // ============================================
   function jump() {
+    // Don't allow jump if already jumping or in the air
     if (game.player.isJumping || game.player.position.y > game.player.groundLevel + 0.1) {
       return;
     }
+    // Apply upward velocity
     game.player.velocity.y = game.player.jumpPower;
     game.player.isJumping = true;
   }
 
+  // ============================================
+  // DRINK POTION - Restore health
+  // ============================================
   function drinkPotion() {
+    // Can't drink if no potions or already at full health
     if (game.player.potions <= 0 || game.player.hp >= game.player.maxHp) {
       return;
     }
+    // Use one potion and heal 45 HP (or to max)
     game.player.potions -= 1;
     game.player.hp = Math.min(game.player.maxHp, game.player.hp + 45);
     addLog("Potion consumed. Health restored.");
   }
 
+  // ============================================
+  // INTERACT - Handle E key for interacting with objects
+  // ============================================
   function interact() {
+    // Prevent rapid interaction (cooldown)
     if (game.interactionCooldown > 0) {
       return;
     }
     game.interactionCooldown = 0.25;
 
+    // In town mode - check for portal or shop interaction
     if (game.mode === "town") {
+      // Check if near portal (enter dungeon)
       if (game.player.position.distanceTo(game.world.portalZone) < 8) {
         enterDungeon();
         return;
       }
+      // Check if near shop
       if (game.player.position.distanceTo(game.world.storeZone) < 5.6) {
         openStore();
       } else {
@@ -1475,17 +1764,22 @@
       return;
     }
 
+    // In dungeon mode - check for chests
     const chest = game.chests.find((entry) => !entry.opened && entry.mesh.position.distanceTo(game.player.position) < 2.2);
     if (chest) {
       openChest(chest);
       return;
     }
 
+    // Check if near exit (after clearing dungeon)
     if (game.dungeonCleared && game.worldExit && game.worldExit.position.distanceTo(game.player.position) < 3.1) {
       completeFloor();
     }
   }
 
+  // ============================================
+  // OPEN STORE - Show the shop UI
+  // ============================================
   function openStore() {
     game.storeOpen = true;
     game.paused = true;
@@ -1493,6 +1787,9 @@
     updatePauseMenu();
   }
 
+  // ============================================
+  // CLOSE STORE - Hide the shop UI
+  // ============================================
   function closeStore() {
     game.storeOpen = false;
     game.paused = false;
@@ -1500,26 +1797,36 @@
     updatePauseMenu();
   }
 
+  // ============================================
+  // OPEN CHEST - Collect rewards from chest
+  // ============================================
   function openChest(chest) {
     chest.opened = true;
-    chest.mesh.rotation.x = -0.35;
+    chest.mesh.rotation.x = -0.35;  // Animate chest opening
     game.player.coins += chest.rewardCoins;
     game.player.potions += chest.rewardPotion;
     addLog(`Chest opened. +${chest.rewardCoins} coins${chest.rewardPotion ? " and a potion" : ""}.`);
     incrementQuest("collect");
   }
 
+  // ============================================
+  // COMPLETE FLOOR - Move to next dungeon level
+  // ============================================
   function completeFloor() {
     addLog(`Floor ${game.dungeonLevel} cleared.`);
     incrementQuest("boss");
     showRewards();
   }
 
+  // ============================================
+  // SHOW REWARDS - Display upgrade choices after clearing floor
+  // ============================================
   function showRewards() {
     game.paused = true;
     ui.rewardModal.classList.remove("hidden");
     ui.rewardChoices.innerHTML = "";
 
+    // Define available rewards
     const rewards = [
       { label: "Sharpened Blade", detail: "+6 damage", apply: () => { game.player.damage += 6; } },
       { label: "Swift Boots", detail: "+0.9 speed", apply: () => { game.player.speed += 0.9; } },
@@ -1527,26 +1834,32 @@
       { label: "Lucky Charm", detail: "+8% luck, +4% crit", apply: () => { game.player.luck += 0.08; game.player.critChance += 0.04; } }
     ];
 
+    // Create buttons for each reward
     rewards.forEach((reward) => {
       const button = document.createElement("button");
       button.innerHTML = `${reward.label}<br><small>${reward.detail}</small>`;
       button.addEventListener("click", () => {
-        reward.apply();
+        reward.apply();  // Apply the reward
         ui.rewardModal.classList.add("hidden");
         game.paused = false;
-        buildTown();
+        buildTown();     // Return to town
         addLog(`${reward.label} claimed.`);
       });
       ui.rewardChoices.appendChild(button);
     });
   }
 
+  // ============================================
+  // ATTEMPT PURCHASE - Buy items from the shop
+  // ============================================
   function attemptPurchase(type) {
+    // Must be in town and near shop
     if (game.mode !== "town" || game.player.position.distanceTo(game.world.storeZone) > 5.6) {
       addLog("Move into the blue store ring first.");
       return;
     }
 
+    // Define available shop items
     const items = {
       potion: { cost: 20, apply: () => { game.player.potions += 1; addLog("Bought a potion."); } },
       power: { cost: 45, apply: () => { game.player.damage += 4; addLog("Bought a power-up. Damage increased."); } },
@@ -1554,6 +1867,7 @@
     };
 
     const item = items[type];
+    // Check if item exists and player can afford it
     if (!item || game.player.coins < item.cost) {
       addLog("Not enough coins.");
       return;
@@ -1562,39 +1876,63 @@
     item.apply();
   }
 
+  // ============================================
+  // HANDLE DEFEAT - Player died
+  // ============================================
   function handleDefeat() {
+    // Prevent multiple defeat triggers
     if (game.isGameOver) {
       return;
     }
     addLog("You lost the dungeon run. Click to continue.");
+    
+    // Set game over state
     game.isGameOver = true;
     game.paused = true;
     game.storeOpen = false;
     keys.mouse = false;
     game.player.hp = 0;
+    
+    // Release pointer lock
     if (document.exitPointerLock) {
       document.exitPointerLock();
     }
+    
+    // Show game over screen
     showGameOverScreen();
   }
 
+  // ============================================
+  // MAYBE LEVEL UP - Check and apply level ups
+  // ============================================
   function maybeLevelUp() {
+    // Calculate XP required for next level
     let required = game.player.level * 100;
+    
+    // Keep leveling up while enough XP
     while (game.player.xp >= required) {
       game.player.level += 1;
       game.player.xp -= required;
+      
+      // Award stat increases
       game.player.maxHp += 18;
       game.player.hp = Math.min(game.player.maxHp, game.player.hp + 20);
       game.player.damage += 4;
+      
       addLog(`Level up! You are now level ${game.player.level}.`);
       required = game.player.level * 100;
     }
   }
 
+  // ============================================
+  // MAKE QUEST - Generate a new quest based on game mode
+  // ============================================
   function makeQuest(mode) {
+    // Town quest - enter the dungeon
     if (mode === "town") {
       return { kind: "travel", target: 1, progress: 0, text: "Step into the center portal and descend" };
     }
+    // Dungeon quests - random selection
     const quests = [
       { kind: "kill", target: 4 + game.dungeonLevel, progress: 0, text: "Defeat monsters on this floor" },
       { kind: "collect", target: 2, progress: 0, text: "Loot treasure and collect potions" },
@@ -1603,42 +1941,68 @@
     return quests[Math.floor(Math.random() * quests.length)];
   }
 
+  // ============================================
+  // SET QUEST - Assign a quest to the player
+  // ============================================
   function setQuest(quest) {
     game.quest = quest;
   }
 
+  // ============================================
+  // INCREMENT QUEST - Progress quest when objective completed
+  // ============================================
   function incrementQuest(kind) {
+    // Only increment if this quest tracks this kind of progress
     if (!game.quest || game.quest.kind !== kind) {
       return;
     }
+    // Increment progress (capped at target)
     game.quest.progress = Math.min(game.quest.target, game.quest.progress + 1);
+    // Check if quest is complete
     if (game.quest.progress >= game.quest.target) {
       rewardQuest();
     }
   }
 
+  // ============================================
+  // CHECK QUEST PROGRESS - Check for automatic progress
+  // ============================================
   function checkQuestProgress() {
+    // Check if player entered portal (town travel quest)
     if (game.mode === "town" && game.quest && game.quest.kind === "travel" && game.player.position.distanceTo(game.world.portalZone) < 8) {
       game.quest.progress = 1;
       rewardQuest();
     }
   }
 
+  // ============================================
+  // REWARD QUEST - Give rewards when quest completed
+  // ============================================
   function rewardQuest() {
     addLog(`Quest completed: ${game.quest.text}. Reward +35 coins.`);
     game.player.coins += 35;
+    // Generate new quest or clear if in town
     game.quest = game.mode === "town" ? null : makeQuest(game.mode);
   }
 
+  // ============================================
+  // IS WALKABLE - Check if a tile is walkable (not a wall)
+  // ============================================
   function isWalkable(x, z) {
     const row = game.world.grid[z];
-    return !!(row && row[x] === 0);
+    return !!(row && row[x] === 0);  // 0 = floor (walkable), 1 = wall
   }
 
+  // ============================================
+  // CREATE GRID - Initialize empty dungeon grid
+  // ============================================
   function createGrid(width, height, fillValue) {
     return Array.from({ length: height }, () => Array.from({ length: width }, () => fillValue));
   }
 
+  // ============================================
+  // CARVE ROOMS - Generate rooms in dungeon grid
+  // ============================================
   function carveRooms(grid, rng, size) {
     const rooms = [];
     const roomCount = 8 + Math.floor(rng() * 4);
